@@ -1,0 +1,1689 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SHOOTMGR</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;700&family=Space+Mono:wght@400;700&display=swap');
+
+  :root {
+    --bg: #0f0f0f;
+    --surface: #1a1a1a;
+    --surface2: #242424;
+    --border: #2e2e2e;
+    --accent: #ff5c00;
+    --accent2: #ffb800;
+    --text: #f0f0f0;
+    --text-muted: #888;
+    --success: #00c97a;
+    --radius: 12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans JP', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    background: var(--bg);
+    z-index: 100;
+  }
+  .logo { font-family: 'Space Mono', monospace; font-size: 17px; font-weight: 700; color: var(--accent); }
+  .logo span { color: var(--text); }
+  .header-right { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+  .progress-badge {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 20px; padding: 4px 14px; font-size: 13px; color: var(--text-muted);
+  }
+  .progress-badge b { color: var(--success); }
+
+  .tabs {
+    display: flex; border-bottom: 1px solid var(--border); padding: 0 20px;
+    overflow-x: auto; background: var(--bg);
+    position: sticky; top: 53px; z-index: 99;
+  }
+  .tab {
+    padding: 12px 18px; font-size: 13px; color: var(--text-muted);
+    cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s;
+    white-space: nowrap; background: none; border-left: none; border-right: none; border-top: none;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .screen { display: none; padding: 20px; max-width: 780px; margin: 0 auto; }
+  .screen.active { display: block; }
+
+  .source-toggle { display: flex; gap: 8px; margin-bottom: 16px; }
+  .source-btn {
+    flex: 1; padding: 12px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text-muted); cursor: pointer;
+    font-size: 13px; font-weight: 700; transition: all 0.2s; text-align: center;
+  }
+  .source-btn.active { border-color: var(--accent); color: var(--accent); background: #1f1200; }
+
+  .upload-zone {
+    border: 2px dashed var(--border); border-radius: var(--radius);
+    padding: 50px 20px; text-align: center; cursor: pointer;
+    transition: all 0.2s; background: var(--surface); position: relative;
+  }
+  .upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: #1f1200; }
+  .upload-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+  .upload-icon { font-size: 44px; margin-bottom: 12px; }
+  .upload-title { font-size: 18px; font-weight: 700; margin-bottom: 6px; }
+  .upload-sub { color: var(--text-muted); font-size: 13px; }
+
+  .sheets-input-area { display: none; }
+  .sheets-input-area.visible { display: block; }
+
+  .input-group { margin-bottom: 12px; }
+  .input-label { font-size: 12px; font-family: 'Space Mono', monospace; color: var(--text-muted); margin-bottom: 6px; display: block; }
+  .input-field {
+    width: 100%; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px 14px; color: var(--text); font-size: 14px;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+  .input-field:focus { outline: none; border-color: var(--accent); }
+  .sheets-help {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 12px; font-size: 12px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.7;
+  }
+  .sheets-help b { color: var(--text); }
+
+  .parse-status {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px; margin-bottom: 16px;
+  }
+  .parse-info { font-size: 13px; color: var(--text-muted); margin-bottom: 14px; }
+  .column-map { display: grid; gap: 8px; }
+  .col-row { display: flex; gap: 10px; align-items: center; }
+  .col-label { width: 130px; color: var(--text-muted); font-size: 11px; font-family: 'Space Mono', monospace; flex-shrink: 0; }
+  .col-select {
+    flex: 1; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); border-radius: 8px; padding: 8px 10px; font-size: 13px;
+  }
+  .col-select:focus { outline: none; border-color: var(--accent); }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px; padding: 11px 20px;
+    border-radius: 8px; font-size: 14px; font-weight: 700; cursor: pointer;
+    border: none; transition: all 0.15s;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #ff7722; }
+  .btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-ghost:hover { border-color: #555; }
+  .btn-sm { padding: 7px 14px; font-size: 12px; }
+  .btn-full { width: 100%; justify-content: center; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .list-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px; gap: 10px; flex-wrap: wrap;
+  }
+  .list-title { font-size: 17px; font-weight: 700; }
+  .filter-tabs { display: flex; gap: 6px; }
+  .filter-btn {
+    padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700;
+    cursor: pointer; border: 1px solid var(--border); background: var(--surface2);
+    color: var(--text-muted); transition: all 0.15s;
+  }
+  .filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  .shoot-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); margin-bottom: 10px; overflow: hidden; transition: border-color 0.2s;
+  }
+  .shoot-card.done { border-color: #00c97a44; }
+
+  .shoot-card-header {
+    display: flex; align-items: center; padding: 14px 16px; gap: 10px; cursor: pointer;
+  }
+  .scene-num {
+    font-family: 'Space Mono', monospace; font-size: 10px; color: var(--text-muted);
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 5px;
+    padding: 3px 7px; min-width: 38px; text-align: center; flex-shrink: 0;
+  }
+  .scene-title { font-weight: 700; font-size: 14px; flex: 1; line-height: 1.4; }
+  .status-pill {
+    font-size: 10px; font-weight: 700; border-radius: 10px; padding: 3px 9px; flex-shrink: 0;
+    background: var(--surface2); color: var(--text-muted); border: 1px solid var(--border);
+  }
+  .done .status-pill { background: #00c97a22; color: var(--success); border-color: #00c97a44; }
+  .chevron { color: var(--text-muted); font-size: 11px; transition: transform 0.2s; flex-shrink: 0; }
+  .shoot-card.open .chevron { transform: rotate(90deg); }
+
+  .shoot-card-body { display: none; padding: 0 16px 16px; border-top: 1px solid var(--border); }
+  .shoot-card.open .shoot-card-body { display: block; animation: slideDown 0.18s ease; }
+
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .detail-label {
+    font-size: 10px; font-family: 'Space Mono', monospace; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.5px; margin-top: 14px; margin-bottom: 6px;
+  }
+  .detail-text { font-size: 13px; line-height: 1.6; }
+
+  .video-ref-box {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; overflow: hidden;
+  }
+  .video-ref-meta { display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
+  .video-ref-icon { font-size: 18px; }
+  .video-ref-info { flex: 1; min-width: 0; }
+  .platform-badge {
+    font-size: 10px; font-weight: 700; font-family: 'Space Mono', monospace;
+    color: var(--text-muted); margin-bottom: 2px; text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .video-ref-url {
+    font-size: 11px; color: var(--accent); word-break: break-all;
+    text-decoration: none; display: block; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+  .video-ref-url:hover { text-decoration: underline; }
+  .video-ref-time {
+    font-family: 'Space Mono', monospace; font-size: 11px; color: var(--accent2); margin-top: 2px;
+  }
+  .video-preview-toggle {
+    background: none; border: none; color: var(--accent); font-size: 11px;
+    cursor: pointer; padding: 0; font-weight: 700; white-space: nowrap; flex-shrink: 0;
+  }
+
+  .video-embed-wrap {
+    display: none; border-top: 1px solid var(--border); background: #000; position: relative; padding-top: 56.25%;
+  }
+  .video-embed-wrap.visible { display: block; }
+  .video-embed-wrap iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
+
+  .video-count-badge {
+    display: inline-block; background: var(--accent); color: #fff;
+    border-radius: 10px; padding: 1px 8px; font-size: 10px;
+    font-weight: 700; margin-left: 6px; vertical-align: middle;
+  }
+  .shot-video-item {
+    border-radius: 8px; overflow: hidden; background: #000;
+    border: 1px solid var(--border); margin-bottom: 8px; margin-top: 4px;
+  }
+  .shot-video-item video { width: 100%; display: block; max-height: 240px; }
+  .shot-video-drop {
+    border: 2px dashed var(--border); border-radius: 8px; padding: 16px;
+    text-align: center; cursor: pointer; transition: all 0.2s; position: relative;
+    font-size: 13px; color: var(--text-muted); margin-top: 4px;
+  }
+  .shot-video-drop:hover { border-color: var(--accent); color: var(--text); }
+  .shot-video-drop input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%; }
+
+  .shot-video-preview {
+    display: none; border-radius: 8px; overflow: hidden;
+    background: #000; border: 1px solid var(--border); margin-top: 8px;
+  }
+  .shot-video-preview.visible { display: block; }
+  .shot-video-preview video { width: 100%; display: block; max-height: 260px; }
+  .shot-video-info {
+    padding: 10px 12px; display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; border-top: 1px solid var(--border);
+  }
+  .shot-video-name { font-size: 11px; font-family: 'Space Mono', monospace; color: var(--accent2); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .shoot-actions { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .done-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: #00c97a18; border: 1px solid #00c97a44;
+    color: var(--success); border-radius: 6px; padding: 6px 12px;
+    font-size: 12px; font-weight: 700; margin-top: 14px;
+  }
+
+  .export-summary {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 24px; text-align: center; margin-bottom: 16px;
+  }
+  .export-num { font-size: 44px; font-weight: 700; color: var(--accent); font-family: 'Space Mono', monospace; }
+  .export-label { color: var(--text-muted); font-size: 13px; margin-top: 4px; }
+  .export-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .export-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 18px; text-align: center; cursor: pointer; transition: all 0.2s;
+  }
+  .export-card:hover { border-color: var(--accent); background: #1f1200; }
+  .export-card-icon { font-size: 28px; margin-bottom: 8px; }
+  .export-card-title { font-weight: 700; font-size: 14px; }
+  .export-card-sub { color: var(--text-muted); font-size: 11px; margin-top: 4px; }
+
+  /* ── GAS STEPS ── */
+  .gas-steps {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 16px;
+  }
+  .gas-step {
+    flex: 1; display: flex; align-items: center; gap: 8px;
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 10px 14px; cursor: pointer; transition: all 0.2s;
+  }
+  .gas-step.active { border-color: var(--accent); background: #1f1200; }
+  .gas-step-num {
+    width: 24px; height: 24px; border-radius: 50%; background: var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; font-family: 'Space Mono', monospace;
+    flex-shrink: 0;
+  }
+  .gas-step.active .gas-step-num { background: var(--accent); color: #fff; }
+  .gas-step-label { font-size: 12px; font-weight: 700; }
+  .gas-step-arrow { color: var(--text-muted); font-size: 16px; flex-shrink: 0; }
+
+  /* ── CODE BLOCK ── */
+  .code-block {
+    background: #0a0a0a; border: 1px solid var(--border);
+    border-radius: 10px; overflow: hidden;
+  }
+  .code-block-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 14px; border-bottom: 1px solid var(--border);
+    font-size: 11px; color: var(--text-muted); font-family: 'Space Mono', monospace;
+  }
+  .copy-btn {
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); border-radius: 6px; padding: 4px 10px;
+    font-size: 11px; cursor: pointer; transition: all 0.15s;
+  }
+  .copy-btn:hover { border-color: var(--accent); color: var(--accent); }
+  pre#gasCode {
+    padding: 14px; font-family: 'Space Mono', monospace; font-size: 11px;
+    line-height: 1.6; color: #ccc; overflow-x: auto; margin: 0;
+    white-space: pre;
+  }
+
+  .video-tap-wrap {
+    position: relative; cursor: pointer; background: #000;
+  }
+  .play-overlay {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.3);
+    transition: opacity 0.2s;
+  }
+  .play-btn-big {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: rgba(255,92,0,0.9);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px; color: #fff; padding-left: 4px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+  }
+  .camera-note {
+    font-size: 11px; color: var(--text-muted); margin-top: 10px;
+    padding: 8px 10px; background: var(--surface2); border-radius: 6px;
+    border-left: 2px solid var(--accent2); line-height: 1.5;
+  }
+  .demo-link {
+    display: block; text-align: center; margin-top: 14px;
+    color: var(--text-muted); font-size: 13px; cursor: pointer; text-decoration: underline;
+  }
+
+  .toast {
+    position: fixed; bottom: 20px; left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 18px; font-size: 13px;
+    z-index: 999; transition: transform 0.3s; white-space: nowrap; max-width: 90vw;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  .empty { text-align: center; padding: 50px 20px; color: var(--text-muted); }
+  .empty-icon { font-size: 44px; margin-bottom: 10px; }
+  .loading { text-align: center; padding: 24px; color: var(--text-muted); font-size: 14px; }
+  /* ── PROMPTER ── */
+  #prompterOverlay {
+    position: fixed; inset: 0; z-index: 500;
+    background: #000; display: flex; flex-direction: column;
+  }
+  #prompterSetup, #prompterSession {
+    display: flex; flex-direction: column; height: 100%;
+  }
+  .prompter-header {
+    display: flex; align-items: center; gap: 12px;
+    padding: 16px 20px; border-bottom: 1px solid #222; flex-shrink: 0;
+  }
+  .prompter-title {
+    flex: 1; font-size: 13px; color: #888;
+    font-family: 'Space Mono', monospace;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .prompter-counter {
+    font-family: 'Space Mono', monospace; font-size: 13px; color: var(--accent); flex-shrink: 0;
+  }
+  .prompter-close {
+    background: #222; border: none; color: #aaa; font-size: 16px;
+    width: 36px; height: 36px; border-radius: 50%; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+
+  /* SETUP */
+  .setup-body {
+    flex: 1; padding: 28px 20px; overflow-y: auto;
+  }
+  .setup-label {
+    font-size: 11px; font-family: 'Space Mono', monospace; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 1px; margin-bottom: 12px;
+  }
+  .setup-options { display: flex; gap: 10px; }
+  .setup-opt {
+    flex: 1; padding: 14px 8px; border-radius: 12px;
+    border: 1px solid #333; background: #1a1a1a; color: #fff;
+    cursor: pointer; transition: all 0.15s; text-align: center;
+  }
+  .setup-opt.active { border-color: var(--accent); background: #1f1200; }
+  .setup-opt-title { font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .setup-opt-sub   { font-size: 11px; color: #888; }
+  .setup-desc { display: flex; flex-direction: column; gap: 10px; }
+  .setup-desc-row {
+    display: flex; gap: 10px; align-items: flex-start;
+    font-size: 13px; color: #aaa; line-height: 1.5;
+  }
+
+  /* SESSION */
+  .tap-zone-left, .tap-zone-right {
+    position: absolute; top: 60px; bottom: 120px; width: 50%; z-index: 10;
+    cursor: pointer;
+  }
+  .tap-zone-left  { left: 0; }
+  .tap-zone-right { right: 0; }
+
+  .prompter-body {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 20px 24px; pointer-events: none;
+  }
+  .prompter-direction {
+    margin-top: 16px; font-size: 14px; color: #aaa;
+    background: #1a1a1a; border: 1px solid #333;
+    border-radius: 8px; padding: 8px 14px;
+    text-align: center; line-height: 1.5;
+    max-width: 80%; pointer-events: none;
+  }
+  .prompter-speaker-label {
+    font-family: 'Space Mono', monospace; font-size: 12px;
+    color: var(--accent); letter-spacing: 1px; margin-bottom: 16px;
+    text-transform: uppercase;
+  }
+  .prompter-text {
+    font-size: clamp(26px, 7vw, 48px); font-weight: 700;
+    color: #fff; line-height: 1.5; text-align: center; word-break: break-all;
+  }
+  .prompter-text.slide-left  { animation: slideInLeft  0.2s ease; }
+  .prompter-text.slide-right { animation: slideInRight 0.2s ease; }
+  @keyframes slideInLeft  { from { opacity:0; transform:translateX(40px); } to { opacity:1; transform:translateX(0); } }
+  @keyframes slideInRight { from { opacity:0; transform:translateX(-40px); } to { opacity:1; transform:translateX(0); } }
+
+  /* STATUS BAR */
+  .prompter-status {
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    padding: 10px; flex-shrink: 0;
+  }
+  .status-icon { font-size: 20px; }
+  .status-msg  { font-size: 13px; color: #aaa; }
+
+  /* TRANSCRIPT */
+  .prompter-transcript {
+    margin: 0 16px; padding: 12px 16px;
+    background: #1a0000; border: 1px solid #ff3333;
+    border-radius: 10px; flex-shrink: 0;
+  }
+  .transcript-label { font-size: 10px; color: #ff6666; font-family: 'Space Mono', monospace; margin-bottom: 6px; }
+  .transcript-text  { font-size: 16px; color: #fff; line-height: 1.5; }
+
+  /* BOTTOM HINT */
+  .prompter-hint {
+    display: flex; height: 64px; flex-shrink: 0;
+    border-top: 1px solid #222; margin-top: 8px;
+  }
+  .hint-left, .hint-right {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700; cursor: pointer; color: #555;
+    transition: background 0.15s;
+  }
+  .hint-left  { border-right: 1px solid #222; }
+  .hint-left:active, .hint-right:active { background: #1a1a1a; color: #fff; }
+
+  /* ── SCRIPT UI ── */
+  .script-preview {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px; margin-top: 4px;
+  }
+  .script-line {
+    display: flex; gap: 10px; padding: 4px 0;
+    border-bottom: 1px solid var(--border); font-size: 13px;
+  }
+  .script-line:last-child { border-bottom: none; }
+  .script-speaker {
+    font-family: 'Space Mono', monospace; font-size: 10px;
+    color: var(--accent); min-width: 60px; flex-shrink: 0;
+    padding-top: 2px;
+  }
+  .script-text { color: var(--text); line-height: 1.5; }
+
+  .prompter-speaker {
+    font-size: 0.45em; font-family: 'Space Mono', monospace;
+    color: var(--accent); margin-bottom: 12px; letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .gap { height: 16px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">SHOOT<span>MGR</span></div>
+  <div class="header-right">
+    <div class="progress-badge" id="progressBadge" style="display:none">
+      <b id="doneCount">0</b> / <span id="totalCount">0</span> 完了
+    </div>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('upload', this)">📁 指示書</button>
+  <button class="tab" onclick="switchTab('list', this)">📋 撮影リスト</button>
+  <button class="tab" onclick="switchTab('export', this)">📦 出力</button>
+</div>
+
+<!-- ① UPLOAD -->
+<div class="screen active" id="screen-upload">
+  <div class="gap"></div>
+  <div class="source-toggle" id="instructionSourceToggle">
+    <button class="source-btn active" id="srcBtnExcel" onclick="setSource('excel')">📊 Excel (.xlsx)</button>
+    <button class="source-btn" id="srcBtnSheets" onclick="setSource('sheets')">🟢 Googleスプレッドシート</button>
+  </div>
+
+  <div id="excelArea">
+    <div class="upload-zone" id="uploadZone">
+      <input type="file" accept=".xlsx,.xls" onchange="handleFile(this.files[0])">
+      <div class="upload-icon">📋</div>
+      <div class="upload-title">Excelをアップロード</div>
+      <div class="upload-sub">.xlsx をドロップ、またはタップして選択</div>
+    </div>
+  </div>
+
+  <div id="sheetsArea" class="sheets-input-area">
+
+    <!-- STEP INDICATOR -->
+    <div class="gas-steps">
+      <div class="gas-step" id="gasStep1" onclick="showGasStep(1)">
+        <div class="gas-step-num">1</div>
+        <div class="gas-step-label">GASを設定</div>
+      </div>
+      <div class="gas-step-arrow">→</div>
+      <div class="gas-step" id="gasStep2" onclick="showGasStep(2)">
+        <div class="gas-step-num">2</div>
+        <div class="gas-step-label">URLを貼り付け</div>
+      </div>
+    </div>
+
+    <!-- STEP 1: GAS SETUP GUIDE -->
+    <div id="gasStepPanel1">
+      <div class="sheets-help">
+        <b>📌 Google Apps Script の設定（初回のみ）</b><br><br>
+        <b>① </b>スプレッドシートを開き「拡張機能」→「Apps Script」<br>
+        <b>② </b>エディタの中身を全消しして下のコードを貼り付け<br>
+        <b>③ </b>保存（Ctrl+S）→「デプロイ」→「新しいデプロイ」<br>
+        <b>④ </b>種類：ウェブアプリ ／ アクセス：<b style="color:#ff5c00">全員</b> → デプロイ<br>
+        <b>⑤ </b>発行されたURLをコピーして次のステップへ
+      </div>
+      <div class="code-block">
+        <div class="code-block-header">
+          <span>GAS コード</span>
+          <button class="copy-btn" onclick="copyCode()">📋 コピー</button>
+        </div>
+        <pre id="gasCode">function doGet(e) {
+  const sheetId = e.parameter.id;
+  const sheetName = e.parameter.sheet || '';
+  const ss = SpreadsheetApp.openById(sheetId);
+  const sheet = sheetName
+    ? ss.getSheetByName(sheetName)
+    : ss.getSheets()[0];
+  const data = sheet.getDataRange().getValues();
+  return ContentService
+    .createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
+}</pre>
+      </div>
+      <button class="btn btn-primary btn-full" style="margin-top:12px" onclick="showGasStep(2)">✅ 設定できた → 次へ</button>
+    </div>
+
+    <!-- STEP 2: URL INPUT -->
+    <div id="gasStepPanel2" style="display:none">
+      <div class="sheets-help">
+        <b>📌 GASデプロイURLを貼り付けてください</b><br>
+        <span style="color:#ff5c00">https://script.google.com/macros/s/...../exec</span> の形のURL
+      </div>
+      <div class="input-group">
+        <label class="input-label">GAS デプロイURL</label>
+        <input class="input-field" id="gasUrl" placeholder="https://script.google.com/macros/s/...../exec">
+      </div>
+      <div class="input-group">
+        <label class="input-label">スプレッドシートID（URLの /d/ の後ろ）</label>
+        <input class="input-field" id="sheetsId" placeholder="1Txa8zKzDVo1qOOlu3DepG104X3AeTKhOwhnVRAfmD34" oninput="autoFillId(this.value)">
+        <div style="font-size:11px;color:var(--text-muted);margin-top:4px">スプレッドシートのURLを貼ると自動入力されます</div>
+      </div>
+      <div class="input-group">
+        <label class="input-label">シート名（任意・空白で1枚目）</label>
+        <input class="input-field" id="sheetsName" placeholder="例: シート1">
+      </div>
+      <button class="btn btn-primary btn-full" onclick="loadSheets()">🟢 読み込む</button>
+      <button class="btn btn-ghost btn-full" style="margin-top:8px" onclick="showGasStep(1)">← GAS設定に戻る</button>
+      <div id="sheetsLoading" class="loading" style="display:none">⏳ 読み込み中...</div>
+    </div>
+
+  </div>
+
+  <!-- 台本アップロード -->
+  <div style="margin-top:12px">
+    <div class="source-toggle">
+      <button class="source-btn active" id="modeInstruction" onclick="setMode('instruction')">📋 指示書モード</button>
+      <button class="source-btn" id="modeScript" onclick="setMode('script')">🎬 台本モード</button>
+    </div>
+  </div>
+
+  <div id="scriptUploadArea" style="display:none; margin-top:4px;">
+    <div class="upload-zone" id="scriptUploadZone">
+      <input type="file" accept=".xlsx,.xls" onchange="handleScriptFile(this.files[0])">
+      <div class="upload-icon">🎬</div>
+      <div class="upload-title">台本Excelをアップロード</div>
+      <div class="upload-sub">シート＝シナリオ、列＝キャラクター の形式に対応</div>
+    </div>
+    <div id="scriptParseSection" style="display:none; margin-top:16px;"></div>
+  </div>
+
+  <a class="demo-link" onclick="loadDemo()">📌 デモデータで試す</a>
+
+  <div id="parseSection" style="display:none; margin-top:20px;">
+    <div class="parse-status">
+      <div class="parse-info" id="parseInfo"></div>
+      <div class="column-map" id="columnMap"></div>
+    </div>
+    <button class="btn btn-primary btn-full" onclick="buildList()">✅ 撮影リストを作成</button>
+  </div>
+</div>
+
+<!-- ② LIST -->
+<div class="screen" id="screen-list">
+  <div class="list-header">
+    <div class="list-title">撮影リスト</div>
+    <div class="filter-tabs">
+      <button class="filter-btn active" onclick="filterList('all', this)">すべて</button>
+      <button class="filter-btn" onclick="filterList('todo', this)">未完了</button>
+      <button class="filter-btn" onclick="filterList('done', this)">完了</button>
+    </div>
+  </div>
+  <div id="shootList"></div>
+</div>
+
+<!-- ③ EXPORT -->
+<div class="screen" id="screen-export">
+  <div class="gap"></div>
+  <div class="export-summary">
+    <div class="export-num" id="exportDone">0</div>
+    <div class="export-label">件の撮影が完了しています</div>
+  </div>
+  <div class="export-grid">
+    <div class="export-card" onclick="exportCSV()">
+      <div class="export-card-icon">📊</div>
+      <div class="export-card-title">CSV 出力</div>
+      <div class="export-card-sub">撮影リストをCSV保存</div>
+    </div>
+    <div class="export-card" onclick="showToast('🗜️ ZIP機能はネイティブアプリ版で対応予定')">
+      <div class="export-card-icon">🗜️</div>
+      <div class="export-card-title">ZIP まとめ</div>
+      <div class="export-card-sub">動画を一括ZIPで出力</div>
+    </div>
+  </div>
+  <button class="btn btn-ghost btn-full" onclick="showToast('📤 納品フォルダ（アプリ版で対応）')">📤 納品フォルダを開く</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- PROMPTER OVERLAY -->
+<div id="prompterOverlay" style="display:none">
+
+  <!-- SETUP SCREEN -->
+  <div id="prompterSetup">
+    <div class="prompter-header">
+      <div class="prompter-title" id="prompterTitle"></div>
+      <button class="prompter-close" onclick="closePrompter()">✕</button>
+    </div>
+    <div class="setup-body">
+      <div class="setup-label">判定の許容度</div>
+      <div class="setup-options">
+        <button class="setup-opt" id="opt-loose" onclick="selectTolerance('loose')">
+          <div class="setup-opt-title">ゆるい</div>
+          <div class="setup-opt-sub">70%以上で一致</div>
+        </button>
+        <button class="setup-opt active" id="opt-normal" onclick="selectTolerance('normal')">
+          <div class="setup-opt-title">普通</div>
+          <div class="setup-opt-sub">85%以上で一致</div>
+        </button>
+        <button class="setup-opt" id="opt-strict" onclick="selectTolerance('strict')">
+          <div class="setup-opt-title">厳しい</div>
+          <div class="setup-opt-sub">95%以上で一致</div>
+        </button>
+      </div>
+      <div class="setup-label" style="margin-top:24px">操作方法</div>
+      <div class="setup-desc">
+        <div class="setup-desc-row">🔊 <span>アプリがセリフを読み上げる</span></div>
+        <div class="setup-desc-row">🎬 <span>演者が演技・復唱する</span></div>
+        <div class="setup-desc-row">👆 <span>画面右タップ → 次のセリフへ</span></div>
+        <div class="setup-desc-row">👆 <span>画面左タップ → もう一度読み上げ</span></div>
+      </div>
+      <button class="btn btn-primary btn-full" style="margin-top:32px;padding:16px;font-size:16px" onclick="startPrompterSession()">▶ 読み上げ開始</button>
+    </div>
+  </div>
+
+  <!-- SESSION SCREEN -->
+  <div id="prompterSession" style="display:none">
+    <div class="prompter-header">
+      <div class="prompter-title" id="prompterSessionTitle"></div>
+      <div class="prompter-counter" id="prompterCounter"></div>
+      <button class="prompter-close" onclick="closePrompter()">✕</button>
+    </div>
+
+    <!-- TAP ZONES -->
+    <div class="tap-zone-left"  onclick="handleTap('left')"></div>
+    <div class="tap-zone-right" onclick="handleTap('right')"></div>
+
+    <!-- MAIN BODY -->
+    <div class="prompter-body">
+      <div class="prompter-speaker-label" id="prompterSpeaker"></div>
+      <div class="prompter-text" id="prompterText"></div>
+      <div class="prompter-direction" id="prompterDirection" style="display:none"></div>
+    </div>
+
+    <!-- STATUS BAR -->
+    <div class="prompter-status" id="prompterStatus">
+      <div class="status-icon" id="statusIcon">🔊</div>
+      <div class="status-msg"  id="statusMsg">読み上げ中...</div>
+    </div>
+
+    <!-- TRANSCRIPT (shown on mismatch) -->
+    <div class="prompter-transcript" id="prompterTranscript" style="display:none">
+      <div class="transcript-label">聞き取り結果</div>
+      <div class="transcript-text" id="transcriptText"></div>
+    </div>
+
+    <!-- BOTTOM HINT -->
+    <div class="prompter-hint" id="prompterHint">
+      <div class="hint-left" onclick="handleTap('left')">← もう一度</div>
+      <div class="hint-right" onclick="handleTap('right')">次へ →</div>
+    </div>
+  </div>
+</div>
+
+<script>
+let allShots = [];
+let headers = [];
+let rawRows = [];
+let currentFilter = 'all';
+
+function setSource(src) {
+  document.getElementById('srcBtnExcel').classList.toggle('active', src === 'excel');
+  document.getElementById('srcBtnSheets').classList.toggle('active', src === 'sheets');
+  document.getElementById('excelArea').style.display = src === 'excel' ? '' : 'none';
+  document.getElementById('sheetsArea').classList.toggle('visible', src === 'sheets');
+  document.getElementById('parseSection').style.display = 'none';
+}
+
+const zone = document.getElementById('uploadZone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('drag'); handleFile(e.dataTransfer.files[0]); });
+
+function handleFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+      if (rows.length < 2) { showToast('⚠️ データが見つかりません'); return; }
+      headers = rows[0].map(String);
+      rawRows = rows.slice(1).filter(r => r.some(c => String(c).trim()));
+      showParseUI(`「${file.name}」`, rawRows.length);
+    } catch(e) { showToast('⚠️ 読み込みエラー: ' + e.message); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function showGasStep(n) {
+  document.getElementById('gasStepPanel1').style.display = n === 1 ? '' : 'none';
+  document.getElementById('gasStepPanel2').style.display = n === 2 ? '' : 'none';
+  document.getElementById('gasStep1').classList.toggle('active', n === 1);
+  document.getElementById('gasStep2').classList.toggle('active', n === 2);
+}
+showGasStep(1);
+
+function copyCode() {
+  const code = document.getElementById('gasCode').textContent;
+  navigator.clipboard.writeText(code).then(() => showToast('📋 コードをコピーしました'));
+}
+
+function autoFillId(val) {
+  // If user pastes a full spreadsheet URL into the ID field, extract the ID
+  const match = val.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+  if (match) document.getElementById('sheetsId').value = match[1];
+}
+
+async function loadSheets() {
+  const gasUrl = document.getElementById('gasUrl').value.trim();
+  const sheetId = document.getElementById('sheetsId').value.trim();
+  const sheetName = document.getElementById('sheetsName').value.trim();
+
+  if (!gasUrl) { showToast('⚠️ GAS デプロイURLを入力してください'); return; }
+  if (!gasUrl.includes('script.google.com')) { showToast('⚠️ GASのURLではありません'); return; }
+  if (!sheetId) { showToast('⚠️ スプレッドシートIDを入力してください'); return; }
+
+  const loading = document.getElementById('sheetsLoading');
+  loading.style.display = '';
+
+  try {
+    let url = `${gasUrl}?id=${encodeURIComponent(sheetId)}`;
+    if (sheetName) url += `&sheet=${encodeURIComponent(sheetName)}`;
+
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTPエラー: ${res.status}`);
+    const data = await res.json();
+
+    if (!Array.isArray(data) || data.length < 2) {
+      throw new Error('データが見つかりません。シート名やIDを確認してください。');
+    }
+
+    headers = data[0].map(String);
+    rawRows = data.slice(1).filter(r => r.some(c => String(c).trim()));
+    showParseUI('Googleスプレッドシート', rawRows.length);
+    showToast(`✅ ${rawRows.length}行を読み込みました`);
+  } catch(err) {
+    showToast('⚠️ ' + err.message);
+    console.error(err);
+  }
+  loading.style.display = 'none';
+}
+
+function parseCSV(text) {
+  const rows = [];
+  for (const line of text.split(/\r?\n/)) {
+    if (!line.trim()) continue;
+    const row = []; let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') { if (inQ && line[i+1] === '"') { cur += '"'; i++; } else inQ = !inQ; }
+      else if (c === ',' && !inQ) { row.push(cur); cur = ''; }
+      else cur += c;
+    }
+    row.push(cur); rows.push(row);
+  }
+  return rows;
+}
+
+function showParseUI(label, count) {
+  document.getElementById('parseInfo').textContent = `${label} を読み込みました。${count}行のデータが見つかりました。各列の役割を確認してください。`;
+  const fields = [
+    { key: 'title', label: '🔴 撮影タイトル', required: true },
+    { key: 'url',   label: '⚪ 参考動画URL' },
+    { key: 'time',  label: '⚪ 参考秒数' },
+    { key: 'note',  label: '⚪ 説明・ト書き' },
+  ];
+  document.getElementById('columnMap').innerHTML = fields.map(f => `
+    <div class="col-row">
+      <div class="col-label">${f.label}</div>
+      <select class="col-select" id="col_${f.key}">
+        ${headers.map(h => `<option ${guess(h, f.key) ? 'selected' : ''}>${escHtml(h)}</option>`).join('')}
+        ${!f.required ? '<option value="">(なし)</option>' : ''}
+      </select>
+    </div>
+  `).join('');
+  document.getElementById('parseSection').style.display = '';
+}
+
+function guess(header, key) {
+  const h = header.toLowerCase();
+  if (key === 'title') return h.includes('タイトル') || h.includes('シーン') || h.includes('title') || h.includes('scene') || h.includes('名前');
+  if (key === 'url')   return h.includes('url') || (h.includes('参考') && h.includes('動画')) || h.includes('リンク');
+  if (key === 'time')  return h.includes('秒') || h.includes('time') || h.includes('再生');
+  if (key === 'note')  return h.includes('説明') || h.includes('ト書') || h.includes('note') || h.includes('備考');
+  return false;
+}
+
+function buildList() {
+  const getVal = id => document.getElementById(id)?.value || '';
+  const titleCol = getVal('col_title');
+  if (!titleCol) { showToast('⚠️ 撮影タイトル列を選択してください'); return; }
+  const idx = col => headers.indexOf(col);
+  allShots = rawRows.map((row, i) => ({
+    id: i,
+    title: row[idx(titleCol)] || `シーン ${i+1}`,
+    url:  getVal('col_url')  ? (row[idx(getVal('col_url'))]  || '') : '',
+    time: getVal('col_time') ? (row[idx(getVal('col_time'))] || '') : '',
+    note: getVal('col_note') ? (row[idx(getVal('col_note'))] || '') : '',
+    done: false, videos: [],
+  })).filter(s => String(s.title).trim());
+  renderList('all');
+  updateProgress();
+  switchTabDirect('list');
+  showToast(`✅ ${allShots.length}件の撮影リストを作成しました`);
+}
+
+function loadDemo() {
+  allShots = [
+    { id:0, title:'トップシーン - 商品を手に取る', url:'https://www.youtube.com/watch?v=dQw4w9WgXcQ', time:'0:03〜0:07', note:'笑顔で商品を持ち上げる。明るい照明推奨。白背景がベスト。', done:false, videos:[] },
+    { id:1, title:'使用シーン - 実際に使っているところ', url:'https://www.youtube.com/watch?v=dQw4w9WgXcQ', time:'0:12〜0:18', note:'自然な表情で。手元をメインに撮る。縦撮り推奨。', done:false, videos:[] },
+    { id:2, title:'リアクションシーン - 驚きの表情', url:'https://www.youtube.com/watch?v=dQw4w9WgXcQ', time:'0:05', note:'「えっ！」という驚きのリアクション。オーバー気味でOK。', done:true, videos:[{blob:'', filename:'リアクションシーン_驚きの表情_1.mp4'}] },
+    { id:3, title:'クローズアップ - パッケージ正面', url:'', time:'', note:'パッケージ正面をしっかり映す。ブレないように固定撮影。', done:false, videos:[] },
+    { id:4, title:'エンディング - 商品と一緒に笑顔', url:'https://www.youtube.com/watch?v=dQw4w9WgXcQ', time:'0:20〜0:25', note:'清潔感ある背景で締め。ロゴが見えるように。', done:false, videos:[] },
+  ];
+  renderList('all');
+  updateProgress();
+  switchTabDirect('list');
+}
+
+function switchTab(name, el) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  el.classList.add('active');
+  if (name === 'export') updateExportCount();
+}
+function switchTabDirect(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+  document.querySelectorAll('.tab')[{upload:0,list:1,export:2}[name]].classList.add('active');
+}
+
+function filterList(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderList(f);
+}
+
+function renderList(filter) {
+  const list = document.getElementById('shootList');
+  let shots = allShots;
+  if (filter === 'todo') shots = shots.filter(s => !s.done);
+  if (filter === 'done') shots = shots.filter(s => s.done);
+  if (!shots.length) {
+    list.innerHTML = `<div class="empty"><div class="empty-icon">${filter==='done'?'📭':'🎉'}</div><div>${filter==='done'?'まだ完了した撮影がありません':'すべて完了しています！'}</div></div>`;
+    return;
+  }
+  list.innerHTML = shots.map(s => `
+    <div class="shoot-card ${s.done ? 'done' : ''}" id="card_${s.id}">
+      <div class="shoot-card-header" onclick="toggleCard(${s.id})">
+        <div class="scene-num">#${String(s.id+1).padStart(2,'0')}</div>
+        <div class="scene-title">${escHtml(s.title)}</div>
+        <div class="status-pill">${s.done ? '✅ 完了' : '未完了'}</div>
+        <div class="chevron">▶</div>
+      </div>
+      <div class="shoot-card-body">
+        ${s.isScript ? `
+          ${s.note ? `<div class="detail-label">場面設定</div><div class="detail-text">${escHtml(s.note)}</div>` : ''}
+          ${s.fv ? `<div class="detail-label">FVの仕掛け</div><div class="detail-text">${escHtml(s.fv)}</div>` : ''}
+          ${s.costume ? `<div class="detail-label">服装</div><div class="detail-text">${escHtml(s.costume)}</div>` : ''}
+          <div class="detail-label">セリフ <span style="color:var(--accent)">${s.lines ? s.lines.length : 0}行</span></div>
+          <div class="script-preview">
+            ${s.lines ? s.lines.slice(0,3).map(l => `
+              <div class="script-line">
+                <span class="script-speaker">${escHtml(l.speaker)}</span>
+                <span class="script-text">${escHtml(l.line)}</span>
+              </div>`).join('') : ''}
+            ${s.lines && s.lines.length > 3 ? `<div style="color:var(--text-muted);font-size:12px;padding:4px 0">... 他${s.lines.length-3}行</div>` : ''}
+          </div>
+          <button class="btn btn-primary btn-sm" style="margin-top:10px;width:100%;justify-content:center" onclick="openScriptPrompter(${s.id})">
+            📺 プロンプター（セリフ読み上げ）
+          </button>
+        ` : `
+          ${s.note ? `
+            <div class="detail-label">撮影内容・ト書き</div>
+            <div class="detail-text">${escHtml(s.note)}</div>
+            ${s.note.includes('\n') || s.note.length > 20 ? `
+              <button class="btn btn-ghost btn-sm" style="margin-top:8px" onclick="openPrompter(${s.id})">
+                📺 プロンプター表示
+              </button>` : ''}
+          ` : ''}
+        `}
+
+        ${s.url ? `
+        <div class="detail-label">参考動画</div>
+        <div class="video-ref-box">
+          <div class="video-ref-meta">
+            <div class="video-ref-icon">${getPlatformIcon(detectPlatform(s.url))}</div>
+            <div class="video-ref-info">
+              <div class="platform-badge">${getPlatformLabel(detectPlatform(s.url))}</div>
+              <a href="${escHtml(s.url)}" target="_blank" class="video-ref-url">${escHtml(s.url)}</a>
+              ${s.time ? `<div class="video-ref-time">⏱ ${escHtml(s.time)}</div>` : ''}
+            </div>
+            ${canEmbed(detectPlatform(s.url))
+              ? `<button class="video-preview-toggle" onclick="toggleEmbed(event,${s.id})">▶ 再生</button>`
+              : `<button class="video-preview-toggle" onclick="window.open('${escHtml(s.url)}','_blank')">↗ 開く</button>`
+            }
+          </div>
+          <div class="video-embed-wrap" id="embed_${s.id}"></div>
+        </div>` : ''}
+
+        <div class="detail-label">
+          撮影した動画
+          ${s.videos.length > 0 ? `<span class="video-count-badge">${s.videos.length}本</span>` : ''}
+        </div>
+        <div id="videoList_${s.id}">
+          ${s.videos.map((v, vi) => `
+            <div class="shot-video-item">
+              <div class="video-tap-wrap" onclick="playVideoInline(this)"><video playsinline webkit-playsinline preload="metadata" style="width:100%;display:block;max-height:240px;background:#000" onplay="this.parentElement.querySelector('.play-overlay').style.display='none'" onpause="this.parentElement.querySelector('.play-overlay').style.display='flex'"><source src="${v.blob}" type="${v.mimeType||'video/mp4'}"></video><div class="play-overlay"><div class="play-btn-big">▶</div></div></div>
+              <div class="shot-video-info">
+                <div class="shot-video-name">${escHtml(v.filename)}</div>
+                <button class="btn btn-ghost btn-sm" onclick="removeVideo(${s.id},${vi})">✕</button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+        <div class="shot-video-drop">
+          <input type="file" accept="video/*" onchange="handleShotVideo(${s.id}, this.files[0]); this.value=''">
+          📹 ${s.videos.length > 0 ? '+ 動画を追加' : '動画をドロップ、またはタップして選択'}
+        </div>
+
+        ${s.done ? `
+          <div class="done-badge">✅ 撮影完了　${s.videos.length}本登録済み</div>
+          <div class="shoot-actions">
+            <button class="btn btn-ghost btn-sm" onclick="undone(${s.id})">↩ 未完了に戻す</button>
+          </div>
+        ` : `
+          <div class="shoot-actions">
+            <button class="btn btn-primary" onclick="markDone(${s.id})">✅ 撮影完了にする</button>
+            <button class="btn btn-ghost" onclick="openCamera(${s.id})">📷 カメラで撮影</button>
+          </div>
+          <div class="camera-note">💡 カメラロールへの自動保存はiOSアプリ版で対応予定。撮影後はカメラアプリで保存してから「動画を追加」でアップしてください。</div>
+        `}
+      </div>
+    </div>
+  `).join('');
+}
+
+function toggleCard(id) {
+  document.getElementById('card_' + id).classList.toggle('open');
+}
+
+// ── VIDEO PLATFORM DETECTION
+function detectPlatform(url) {
+  const u = String(url);
+  if (/youtube\.com|youtu\.be/.test(u))        return 'youtube';
+  if (/tiktok\.com/.test(u))                   return 'tiktok';
+  if (/instagram\.com/.test(u))                return 'instagram';
+  if (/twitter\.com|x\.com/.test(u))           return 'twitter';
+  if (/vimeo\.com/.test(u))                    return 'vimeo';
+  if (/drive\.google\.com/.test(u))            return 'gdrive';
+  if (/\.(mp4|mov|webm|m4v)(\?|$)/i.test(u))  return 'direct';
+  return 'other';
+}
+
+function getPlatformLabel(platform) {
+  return { youtube:'YouTube', tiktok:'TikTok', instagram:'Instagram',
+    twitter:'X (Twitter)', vimeo:'Vimeo', gdrive:'Googleドライブ',
+    direct:'動画ファイル', other:'外部リンク' }[platform] || '外部リンク';
+}
+
+function getPlatformIcon(platform) {
+  return { youtube:'▶️', tiktok:'🎵', instagram:'📸', twitter:'🐦',
+    vimeo:'🎬', gdrive:'📁', direct:'🎥', other:'🔗' }[platform] || '🔗';
+}
+
+function canEmbed(platform) {
+  return ['youtube', 'vimeo', 'gdrive', 'direct'].includes(platform);
+}
+
+function toggleEmbed(e, id) {
+  e.stopPropagation();
+  const wrap = document.getElementById('embed_' + id);
+  if (wrap.classList.contains('visible')) {
+    wrap.classList.remove('visible'); wrap.innerHTML = ''; return;
+  }
+  const s = allShots.find(x => x.id === id);
+  const platform = detectPlatform(s.url);
+  const startSec = parseTimeSec(s.time);
+
+  if (platform === 'youtube') {
+    const ytId = extractYtId(s.url);
+    if (!ytId) { window.open(s.url, '_blank'); return; }
+    wrap.innerHTML = `<iframe src="https://www.youtube.com/embed/${ytId}?start=${startSec}&autoplay=1" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+
+  } else if (platform === 'vimeo') {
+    const m = s.url.match(/vimeo\.com\/(\d+)/);
+    if (!m) { window.open(s.url, '_blank'); return; }
+    wrap.innerHTML = `<iframe src="https://player.vimeo.com/video/${m[1]}?autoplay=1#t=${startSec}" allow="autoplay; fullscreen" allowfullscreen></iframe>`;
+
+  } else if (platform === 'gdrive') {
+    // Convert share URL to embed URL
+    const fileMatch = s.url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+    if (!fileMatch) { window.open(s.url, '_blank'); return; }
+    wrap.innerHTML = `<iframe src="https://drive.google.com/file/d/${fileMatch[1]}/preview" allow="autoplay" allowfullscreen></iframe>`;
+
+  } else if (platform === 'direct') {
+    wrap.innerHTML = `<video controls autoplay src="${escHtml(s.url)}" style="width:100%;display:block;max-height:300px"></video>`;
+
+  } else {
+    // TikTok, Instagram, X etc → open externally
+    window.open(s.url, '_blank');
+    return;
+  }
+
+  wrap.classList.add('visible');
+}
+
+function extractYtId(url) {
+  const m = String(url).match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?.*v=|embed\/|shorts\/))([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+function parseTimeSec(timeStr) {
+  if (!timeStr) return 0;
+  const first = String(timeStr).split(/[〜~\-–]/)[0].trim();
+  const parts = first.split(':');
+  if (parts.length === 2) return parseInt(parts[0])*60 + (parseInt(parts[1])||0);
+  return parseInt(parts[0]) || 0;
+}
+
+function handleShotVideo(id, file) {
+  if (!file) return;
+  const s = allShots.find(x => x.id === id);
+  const safe = s.title.replace(/[\\/:*?"<>|]/g, '_');
+  const ext = (file.name.split('.').pop() || 'mp4').toLowerCase();
+  const num = s.videos.length + 1;
+  const filename = `${safe}_${num}.${ext}`;
+
+  // Determine correct MIME type - Safari needs exact MIME
+  let mimeType = file.type;
+  if (!mimeType || mimeType === 'application/octet-stream') {
+    const mimeMap = { mov: 'video/mp4', mp4: 'video/mp4', m4v: 'video/mp4',
+                      webm: 'video/webm', ogv: 'video/ogg', '3gp': 'video/3gpp' };
+    mimeType = mimeMap[ext] || 'video/mp4';
+  }
+  // MOV from iPhone = H.264 inside QuickTime container, re-wrap as mp4 blob
+  if (ext === 'mov') mimeType = 'video/mp4';
+
+  // Create blob URL with explicit MIME type (more reliable than base64 in Safari)
+  const blob = new Blob([file], { type: mimeType });
+  const blobUrl = URL.createObjectURL(blob);
+
+  s.videos.push({ blob: blobUrl, filename, mimeType, isBlob: true });
+  showToast(`📹 ${filename}`);
+  refreshVideoList(id);
+  updateProgress();
+}
+
+// ── VIDEO PLAYBACK
+function playVideoInline(wrap) {
+  const vid = wrap.querySelector('video');
+  if (!vid) return;
+  if (vid.paused) {
+    vid.play().catch(e => showToast('⚠️ ' + e.name + ': ' + e.message));
+  } else {
+    vid.pause();
+  }
+}
+
+// ── CAMERA
+function openCamera(id) {
+  // Create a temporary file input with capture=environment to open camera
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = 'video/*';
+  input.setAttribute('capture', 'environment');
+  input.onchange = (e) => {
+    if (e.target.files[0]) handleShotVideo(id, e.target.files[0]);
+  };
+  input.click();
+  // Note: iOS Safari will open camera but saving to camera roll requires native app
+  showToast('📷 撮影後、動画は自動でこのアプリに読み込まれます');
+}
+
+function refreshVideoList(id) {
+  const s = allShots.find(x => x.id === id);
+  const listEl = document.getElementById('videoList_' + id);
+  if (!listEl) return;
+
+  // Clear and rebuild using DOM API (avoids Safari innerHTML video src bug)
+  listEl.innerHTML = '';
+  s.videos.forEach((v, vi) => {
+    // Wrapper
+    const item = document.createElement('div');
+    item.className = 'shot-video-item';
+    item.id = `shotItem_${id}_${vi}`;
+
+    // Tap wrap
+    const tapWrap = document.createElement('div');
+    tapWrap.className = 'video-tap-wrap';
+
+    // Video element — set src via JS property, not HTML attribute
+    const vid = document.createElement('video');
+    vid.id = `shotVid_${id}_${vi}`;
+    vid.setAttribute('playsinline', '');
+    vid.setAttribute('webkit-playsinline', '');
+    vid.setAttribute('preload', 'metadata');
+    vid.setAttribute('controls', '');
+    vid.style.cssText = 'width:100%;display:block;max-height:240px;background:#000';
+    // Directly set src property — most reliable in Safari
+    vid.src = v.blob;
+    vid.type = v.mimeType || 'video/mp4';
+
+    // Overlay
+    const overlay = document.createElement('div');
+    overlay.className = 'play-overlay';
+    overlay.innerHTML = '<div class="play-btn-big">▶</div>';
+
+    vid.addEventListener('play',  () => overlay.style.display = 'none');
+    vid.addEventListener('pause', () => overlay.style.display = 'flex');
+    vid.addEventListener('error', (e) => {
+      console.error('video error', vid.error);
+      showToast('⚠️ 動画読み込みエラー: ' + (vid.error ? vid.error.message : '不明'));
+    });
+
+    tapWrap.appendChild(vid);
+    tapWrap.appendChild(overlay);
+    tapWrap.addEventListener('click', () => {
+      if (vid.paused) {
+        vid.play().catch(e => showToast('⚠️ ' + e.name + ': ' + e.message));
+      } else {
+        vid.pause();
+      }
+    });
+
+    // Info row
+    const info = document.createElement('div');
+    info.style.cssText = 'display:flex;gap:8px;padding:8px 10px;align-items:center;border-top:1px solid #2e2e2e';
+    info.innerHTML = `<div style="flex:1;font-size:11px;font-family:monospace;color:#ffb800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(v.filename)}</div>`;
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn btn-ghost btn-sm';
+    delBtn.textContent = '✕';
+    delBtn.onclick = () => removeVideo(id, vi);
+    info.appendChild(delBtn);
+
+    item.appendChild(tapWrap);
+    item.appendChild(info);
+    listEl.appendChild(item);
+  });
+
+  // Update drop zone
+  const dropEl = listEl.nextElementSibling;
+  if (dropEl) {
+    dropEl.innerHTML = '';
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = 'video/*';
+    inp.onchange = (e) => { if(e.target.files[0]) handleShotVideo(id, e.target.files[0]); inp.value=''; };
+    const txt = document.createTextNode('📹 ' + (s.videos.length > 0 ? '+ 動画を追加' : '動画をタップして選択'));
+    dropEl.appendChild(inp);
+    dropEl.appendChild(txt);
+  }
+  // Update count badge
+  const badge = document.getElementById('vcBadge_' + id);
+  if (badge) badge.textContent = s.videos.length > 0 ? s.videos.length + '本' : '';
+}
+
+function removeVideo(id, vi) {
+  const s = allShots.find(x => x.id === id);
+  if (s.videos[vi].isBlob) URL.revokeObjectURL(s.videos[vi].blob);
+  s.videos.splice(vi, 1);
+  // Renumber filenames
+  const safe = s.title.replace(/[\\/:*?"<>|]/g, '_');
+  s.videos.forEach((v, i) => {
+    const ext = v.filename.split('.').pop();
+    v.filename = `${safe}_${i+1}.${ext}`;
+  });
+  if (s.videos.length === 0) s.done = false;
+  refreshVideoList(id);
+  updateProgress();
+  // update count badge
+  const badge = document.querySelector(`#card_${id} .video-count-badge`);
+  if (badge) badge.textContent = s.videos.length > 0 ? s.videos.length + '本' : '';
+}
+
+function markDone(id) {
+  const s = allShots.find(x => x.id === id);
+  s.done = true;
+  const label = s.videos.length > 0 ? `${s.videos.length}本登録済み` : 'ファイル未登録';
+  showToast(`✅ 完了! ${label}`);
+  renderList(currentFilter); updateProgress();
+}
+function undone(id) { allShots.find(x => x.id === id).done = false; renderList(currentFilter); updateProgress(); }
+
+function updateProgress() {
+  const done = allShots.filter(s => s.done).length, total = allShots.length;
+  const badge = document.getElementById('progressBadge');
+  badge.style.display = total ? '' : 'none';
+  document.getElementById('doneCount').textContent = done;
+  document.getElementById('totalCount').textContent = total;
+}
+function updateExportCount() { document.getElementById('exportDone').textContent = allShots.filter(s => s.done).length; }
+
+function exportCSV() {
+  if (!allShots.length) { showToast('⚠️ データがありません'); return; }
+  const header = ['#', 'タイトル', '参考URL', '参考秒数', '説明', '状態', 'ファイル名'];
+  const rows = allShots.map(s => [s.id+1, s.title, s.url, s.time, s.note, s.done?'完了':'未完了', s.videos.map(v=>v.filename).join(' / ')]);
+  const csv = [header, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF'+csv], { type: 'text/csv;charset=utf-8' });
+  Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: '撮影リスト.csv' }).click();
+  showToast('📊 CSVを出力しました');
+}
+
+// ── MODE TOGGLE
+let currentMode = 'instruction';
+function setMode(mode) {
+  currentMode = mode;
+  document.getElementById('modeInstruction').classList.toggle('active', mode === 'instruction');
+  document.getElementById('modeScript').classList.toggle('active', mode === 'script');
+  // instruction areas
+  document.getElementById('excelArea').style.display = mode === 'instruction' ? '' : 'none';
+  const sheetsArea = document.getElementById('sheetsArea');
+  if (sheetsArea.classList.contains('visible') && mode !== 'instruction') sheetsArea.classList.remove('visible');
+  document.getElementById('instructionSourceToggle').style.display = mode === 'instruction' ? '' : 'none';
+  document.getElementById('parseSection').style.display = 'none';
+  // script area
+  document.getElementById('scriptUploadArea').style.display = mode === 'script' ? '' : 'none';
+}
+
+// ── SCRIPT (台本) PARSING
+function handleScriptFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      parseScriptWorkbook(wb, file.name);
+    } catch(err) { showToast('⚠️ 読み込みエラー: ' + err.message); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function parseScriptWorkbook(wb, filename) {
+  const scenarios = [];
+
+  wb.SheetNames.forEach(sheetName => {
+    const ws = wb.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+    if (rows.length < 3) return;
+
+    // ── Detect layout type
+    const layout = detectScriptLayout(rows);
+    console.log('Layout detected:', layout, 'for sheet:', sheetName);
+
+    if (layout === 'multi-character') {
+      // Layout A: columns = characters (前回の台本形式)
+      parseMultiCharLayout(rows, sheetName, scenarios);
+    } else {
+      // Layout B: rows = lines, col B=scene, col C=text, col D=direction
+      parseSingleColLayout(rows, sheetName, scenarios);
+    }
+  });
+
+  if (scenarios.length === 0) {
+    showToast('⚠️ シナリオが見つかりませんでした');
+    return;
+  }
+
+  allShots = scenarios;
+  renderList('all');
+  updateProgress();
+  switchTabDirect('list');
+  showToast(`✅ ${scenarios.length}件のシナリオを読み込みました`);
+}
+
+// ── DETECT LAYOUT
+function detectScriptLayout(rows) {
+  // Multi-character: has '役柄' label in col B
+  for (let i = 0; i < Math.min(rows.length, 12); i++) {
+    if (rows[i] && String(rows[i][1] || '').includes('役柄')) return 'multi-character';
+  }
+  // Single-col: has header row with テキスト/映像 or scene IDs like op1,op2
+  for (let i = 0; i < Math.min(rows.length, 20); i++) {
+    const r = rows[i];
+    if (!r) continue;
+    const b = String(r[1] || ''), c = String(r[2] || ''), d = String(r[3] || '');
+    if (c.includes('テキスト') || d.includes('映像') || /^op\d/.test(b)) return 'single-col';
+  }
+  return 'single-col';
+}
+
+// ── LAYOUT A: Multi-character columns
+function parseMultiCharLayout(rows, sheetName, scenarios) {
+  let charRow = -1, roleRow = -1;
+  for (let i = 0; i < Math.min(rows.length, 10); i++) {
+    const r = rows[i];
+    if (r && String(r[1]||'') === '役柄') { roleRow = i; }
+    const nonNull = (r||[]).filter((v,j) => j > 1 && v);
+    if (nonNull.length >= 1 && roleRow === -1) charRow = i;
+  }
+  if (charRow === -1) charRow = 4;
+
+  const charCols = {};
+  (rows[charRow]||[]).forEach((val, j) => {
+    if (j > 1 && val) charCols[j] = String(val).trim();
+  });
+  if (Object.keys(charCols).length === 0) return;
+
+  let setting = '', fv = '', costume = '';
+  rows.forEach(r => {
+    if (!r || !r[1]) return;
+    const label = String(r[1]);
+    if (label.includes('場面設定')) setting = String(r[2]||'');
+    if (label.includes('FV'))      fv      = String(r[2]||'');
+    if (label.includes('服装'))    costume = Object.keys(charCols).map(j => `${charCols[j]}: ${r[j]||''}`).filter(v => !v.endsWith(': ')).join(' / ');
+  });
+
+  const lines = [];
+  const scriptStart = Math.max(roleRow, charRow) + 3;
+  for (let i = scriptStart; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r) continue;
+    Object.keys(charCols).forEach(j => {
+      const val = r[j];
+      if (val !== null && val !== undefined && String(val).trim()) {
+        lines.push({ speaker: charCols[j], line: String(val).trim(), direction: '' });
+      }
+    });
+  }
+
+  if (lines.length > 0) {
+    scenarios.push({
+      id: scenarios.length, title: sheetName, note: setting,
+      fv, costume, lines, url: '', time: '',
+      done: false, videos: [], isScript: true,
+    });
+  }
+}
+
+// ── LAYOUT B: Single text column with directions (今回の形式)
+function parseSingleColLayout(rows, sheetName, scenarios) {
+  // Find header row (contains テキスト or 概要)
+  let headerRow = -1;
+  for (let i = 0; i < Math.min(rows.length, 25); i++) {
+    const r = rows[i];
+    if (!r) continue;
+    const rowStr = r.map(v => String(v||'')).join('');
+    if (rowStr.includes('テキスト') || rowStr.includes('概要') || rowStr.includes('発信者')) {
+      headerRow = i; break;
+    }
+  }
+  if (headerRow === -1) headerRow = 17; // fallback
+
+  // Detect column positions from header
+  const headerData = rows[headerRow] || [];
+  let textCol = 2, dirCol = 3; // defaults: C=text, D=direction
+  headerData.forEach((val, j) => {
+    const v = String(val||'').trim();
+    if (v === 'テキスト' || v === 'セリフ') textCol = j;
+    if (v === '映像' || v === '映像指示' || v === 'ジェスチャー') dirCol = j;
+  });
+
+  // Extract metadata from top rows
+  let refUrl = '', note = '';
+  for (let i = 0; i < headerRow; i++) {
+    const r = rows[i];
+    if (!r) continue;
+    const label = String(r[1]||'').trim();
+    if (label === '参考動画') {
+      refUrl = String(r[textCol] || r[2] || '').split('\n')[0].trim();
+    }
+    if (label === 'ターゲット' || label === '場面設定') {
+      note = String(r[textCol] || r[2] || '').trim();
+    }
+  }
+
+  // Extract lines
+  const lines = [];
+  let currentScene = '';
+  for (let i = headerRow + 1; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r) continue;
+
+    const sceneId = String(r[1]||'').trim();
+    const text    = String(r[textCol]||'').trim();
+    const dir     = String(r[dirCol]  ||'').trim();
+
+    if (sceneId && sceneId !== 'None') currentScene = sceneId;
+    if (!text || text === 'null') continue;
+    // Skip formula cells
+    if (text.startsWith('=')) continue;
+
+    lines.push({
+      speaker:   currentScene,
+      line:      text,
+      direction: dir,
+    });
+  }
+
+  if (lines.length > 0) {
+    scenarios.push({
+      id: scenarios.length,
+      title: sheetName,
+      note, fv: '', costume: '',
+      lines, url: refUrl, time: '',
+      done: false, videos: [], isScript: true,
+    });
+  }
+}
+
+
+// ── OPEN PROMPTER (show setup screen)
+function openPrompter(id) {
+  const s = allShots.find(x => x.id === id);
+  if (!s || !s.note) return;
+  prompterLines = s.note.split(/\n/).map(l => l.trim()).filter(l => l.length > 0)
+                   .map(l => ({ speaker: '', line: l }));
+  if (prompterLines.length === 0) return;
+  _showPrompterSetup(s.title);
+}
+
+function openScriptPrompter(id) {
+  const s = allShots.find(x => x.id === id);
+  if (!s || !s.lines || s.lines.length === 0) return;
+  prompterLines = s.lines.map(l => ({ speaker: l.speaker, line: l.line }));
+  _showPrompterSetup(s.title);
+}
+
+function _showPrompterSetup(title) {
+  prompterIdx = 0;
+  sessionActive = false;
+  document.getElementById('prompterTitle').textContent = title;
+  document.getElementById('prompterSetup').style.display  = 'flex';
+  document.getElementById('prompterSession').style.display = 'none';
+  document.getElementById('prompterOverlay').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  const el = document.getElementById('prompterOverlay');
+  if (el.requestFullscreen) el.requestFullscreen().catch(()=>{});
+  else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+}
+
+function selectTolerance(level) {
+  toleranceLevel = level;
+  document.querySelectorAll('.setup-opt').forEach(b => b.classList.remove('active'));
+  document.getElementById('opt-' + level).classList.add('active');
+}
+
+// ── START SESSION
+function startPrompterSession() {
+  document.getElementById('prompterSetup').style.display   = 'none';
+  document.getElementById('prompterSession').style.display = 'flex';
+  document.getElementById('prompterSessionTitle').textContent =
+    document.getElementById('prompterTitle').textContent;
+  sessionActive = true;
+  renderPrompter('');
+  speakLine();
+}
+
+// ── CLOSE PROMPTER
+function closePrompter() {
+  sessionActive = false;
+  stopSpeech();
+  stopListening();
+  clearAutoNext();
+  document.getElementById('prompterOverlay').style.display = 'none';
+  document.body.style.overflow = '';
+  if (document.exitFullscreen) document.exitFullscreen().catch(()=>{});
+  else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+}
+
+// ── RENDER
+function renderPrompter(animClass) {
+  const line = prompterLines[prompterIdx];
+  const total = prompterLines.length;
+
+  document.getElementById('prompterCounter').textContent = `${prompterIdx+1} / ${total}`;
+  document.getElementById('prompterSpeaker').textContent = line.speaker || '';
+
+  const textEl = document.getElementById('prompterText');
+  textEl.className = 'prompter-text' + (animClass ? ' ' + animClass : '');
+  textEl.textContent = line.line;
+
+  // Direction (映像指示)
+  const dirEl = document.getElementById('prompterDirection');
+  if (dirEl) {
+    if (line.direction) {
+      dirEl.textContent = '🎬 ' + line.direction;
+      dirEl.style.display = '';
+    } else {
+      dirEl.style.display = 'none';
+    }
+  }
+
+  // Hide transcript on new line
+  document.getElementById('prompterTranscript').style.display = 'none';
+  document.getElementById('transcriptText').textContent = '';
+
+}
+
+function setStatus(icon, msg) {
+  document.getElementById('statusIcon').textContent = icon;
+  document.getElementById('statusMsg').textContent  = msg;
+}
+
+// ── SPEAK current line
+function speakLine() {
+  if (!sessionActive) return;
+  clearAutoNext();
+
+  if (!('speechSynthesis' in window)) {
+    setStatus('👆', '← もう一度 ／ 次へ →');
+    return;
+  }
+
+  window.speechSynthesis.cancel();
+
+  // Wait for cancel to complete, then speak
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    if (!sessionActive) return;
+    const line = prompterLines[prompterIdx];
+    const utt = new SpeechSynthesisUtterance(line.line);
+    utt.lang = 'ja-JP';
+    utt.rate = 0.9;
+    utt.volume = 1;
+
+    const voices = window.speechSynthesis.getVoices();
+    const jaVoice = voices.find(v => v.lang && v.lang.startsWith('ja'));
+    if (jaVoice) utt.voice = jaVoice;
+
+    utt.onstart = () => setStatus('🔊', '読み上げ中...');
+    utt.onend   = () => { if (sessionActive) setStatus('👆', '← もう一度 ／ 次へ →'); };
+    utt.onerror = (e) => {
+      if (!sessionActive) return;
+      if (e.error === 'interrupted' || e.error === 'canceled') return;
+      // TTS failed (e.g. Safari local file) - show tap hint instead
+      setStatus('👆', '← もう一度 ／ 次へ →');
+    };
+
+    setStatus('🔊', '読み上げ中...');
+    window.speechSynthesis.speak(utt);
+
+    // Safari stall fix: resume if paused after 1s
+    setTimeout(() => {
+      if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+    }, 1000);
+  }));
+}
+function stopSpeech() {
+  window.speechSynthesis.cancel();
+}
+
+// ── SPEECH RECOGNITION (disabled - Safari blocks mic on local files)
+function startListening() {
+  // Mic recognition disabled - use tap or voice "次"/"もう一度" not available
+  // Just wait for user tap
+}
+
+function stopListening() {}
+
+// ── TRANSCRIPT HANDLER (disabled)
+function handleTranscript(t) {}
+
+
+// ── NAVIGATION
+function goNext() {
+  clearAutoNext();
+  stopListening();
+  if (prompterIdx >= prompterLines.length - 1) {
+    setStatus('🎉', '全セリフ完了！');
+    document.getElementById('prompterText').textContent = '完了！';
+    document.getElementById('prompterSpeaker').textContent = '';
+    sessionActive = false;
+    return;
+  }
+  prompterIdx++;
+  renderPrompter('slide-left');
+  speakLine();
+}
+
+function retry() {
+  clearAutoNext();
+  stopListening();
+  document.getElementById('prompterTranscript').style.display = 'none';
+  renderPrompter('');
+  speakLine();
+}
+
+function clearAutoNext() {
+  if (autoNextTimer) { clearTimeout(autoNextTimer); autoNextTimer = null; }
+}
+
+// ── TAP ZONES
+function handleTap(side) {
+  if (!sessionActive) return;
+  if (side === 'right') goNext();
+  else retry();
+}
+
+// ── KEYBOARD
+document.addEventListener('keydown', e => {
+  if (document.getElementById('prompterOverlay').style.display === 'none') return;
+  if (e.key === 'ArrowRight') goNext();
+  if (e.key === 'ArrowLeft')  retry();
+  if (e.key === 'Escape')     closePrompter();
+});
+
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
